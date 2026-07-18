@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>물고기 잡기 - 빛의 굴절 게임</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: linear-gradient(135deg, #020617 0%, #0f172a 50%, #1e293b 100%);
+    color: #e2e8f0;
+    min-height: 100vh;
+    display: flex; justify-content: center; align-items: flex-start;
+    padding: 6px;
+  }
+  .container { width: 100%; max-width: 520px; }
+  h1 {
+    text-align: center; font-weight: 900; font-size: 20px;
+    background: linear-gradient(90deg, #06b6d4, #22d3ee, #67e8f9);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 8px;
+  }
+  .tabs { display: flex; gap: 6px; margin-bottom: 8px; }
+  .tab {
+    flex: 1; padding: 7px; text-align: center; font-weight: 700; font-size: 13px;
+    background: rgba(30, 41, 59, 0.6); border: 1px solid #334155;
+    border-radius: 10px; cursor: pointer; transition: all 0.2s;
+    color: #94a3b8;
+  }
+  .tab.active {
+    background: linear-gradient(135deg, #0891b2, #06b6d4);
+    color: #fff; border-color: #06b6d4;
+    box-shadow: 0 0 20px rgba(6, 182, 212, 0.4);
+  }
+  .panel {
+    background: rgba(15, 23, 42, 0.7);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(51, 65, 85, 0.6);
+    border-radius: 12px;
+    padding: 10px;
+  }
+  .hidden { display: none !important; }
+
+  /* 상단 HUD */
+  .hud {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px;
+    margin-bottom: 6px;
+  }
+  .hud-card {
+    background: rgba(30,41,59,0.8); border: 1px solid #334155;
+    border-radius: 8px; padding: 5px; text-align: center;
+  }
+  .hud-label { font-size: 11px; color: #94a3b8; }
+  .hud-value { font-size: 16px; font-weight: 900; color: #06b6d4; margin-top: 1px; }
+  .hud-value.timer { color: #22d3ee; }
+  .hud-value.score { color: #facc15; }
+  .hud-value.combo { color: #f472b6; }
+
+  .timer-bar-wrap { height: 5px; background: #1e293b; border-radius: 3px; overflow: hidden; margin-top: 6px; }
+  .timer-bar { height: 100%; background: linear-gradient(90deg, #06b6d4, #22d3ee); transition: width 0.2s linear; }
+  .timer-bar.warn { background: linear-gradient(90deg, #facc15, #fb923c); }
+  .timer-bar.danger { background: linear-gradient(90deg, #ef4444, #f87171); }
+
+  /* 게임 캔버스 */
+  .stage { position: relative; margin: 6px 0; }
+  canvas {
+    display: block; width: 100%; height: auto; background: #020617;
+    border: 1px solid #1e293b; border-radius: 10px;
+  }
+
+  .weapon-badge {
+    position: absolute; top: 4px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.6); padding: 5px 12px; border-radius: 20px;
+    border: 1px solid #06b6d4; font-weight: 700; font-size: 13px; white-space: nowrap;
+  }
+  .multiplier-badge {
+    position: absolute; top: 8px; right: 8px;
+    background: linear-gradient(135deg, #db2777, #f472b6);
+    padding: 6px 12px; border-radius: 20px; font-weight: 900;
+    font-size: 13px; box-shadow: 0 0 15px rgba(244,114,182,0.6);
+    animation: pulse 0.6s infinite alternate;
+  }
+  @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.06); } }
+
+  .hint {
+    text-align: center; padding: 8px; background: rgba(6,182,212,0.1);
+    border: 1px solid rgba(6,182,212,0.3); border-radius: 8px;
+    font-size: 13px; color: #67e8f9;
+  }
+
+  .keys {
+    display: flex; justify-content: center; gap: 8px; margin-top: 10px;
+    font-size: 12px; color: #94a3b8;
+  }
+  .key {
+    background: #1e293b; border: 1px solid #475569; border-bottom: 3px solid #334155;
+    padding: 4px 10px; border-radius: 6px; font-weight: 700; color: #e2e8f0;
+    font-family: monospace;
+  }
+
+  /* 버튼 */
+  .btn {
+    padding: 12px 22px; border: none; border-radius: 10px;
+    font-family: inherit; font-weight: 700; font-size: 15px; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, #0891b2, #06b6d4); color: #fff;
+    box-shadow: 0 4px 15px rgba(6,182,212,0.4);
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(6,182,212,0.6); }
+  .btn-secondary { background: #334155; color: #e2e8f0; }
+  .btn-secondary:hover { background: #475569; }
+  .btn-danger { background: linear-gradient(135deg, #dc2626, #ef4444); color: #fff; }
+
+  .center { text-align: center; margin-top: 12px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+
+  /* 메인 화면 */
+  .main-screen { position: relative; text-align: center; padding: 14px 12px; }
+  .author-badge { position: absolute; top: 8px; right: 8px; background: rgba(0,0,0,0.4); border: 1px solid #06b6d4; color: #a5f3fc; padding: 4px 10px; border-radius: 14px; font-size: 11px; font-weight: 700; }
+  .main-title { font-size: 40px; margin-bottom: 4px; }
+  .main-desc { color: #94a3b8; margin-bottom: 12px; font-size: 13px; line-height: 1.55; }
+
+  /* 명예의 전당 */
+  .hof-list { list-style: none; margin-top: 12px; }
+  .hof-row {
+    display: grid; grid-template-columns: 50px 1fr auto; gap: 10px;
+    padding: 10px 14px; margin-bottom: 6px; align-items: center;
+    background: rgba(30,41,59,0.6); border: 1px solid #334155; border-radius: 8px;
+  }
+  .hof-row.gold { background: linear-gradient(135deg, rgba(250,204,21,0.15), rgba(30,41,59,0.6)); border-color: #facc15; }
+  .hof-row.silver { background: linear-gradient(135deg, rgba(203,213,225,0.12), rgba(30,41,59,0.6)); border-color: #cbd5e1; }
+  .hof-row.bronze { background: linear-gradient(135deg, rgba(251,146,60,0.12), rgba(30,41,59,0.6)); border-color: #fb923c; }
+  .hof-rank { font-size: 20px; font-weight: 900; text-align: center; }
+  .hof-name { font-weight: 700; display: flex; align-items: center; gap: 6px; }
+  .hof-score { color: #facc15; font-weight: 900; font-size: 17px; }
+
+  /* 모달 */
+  .modal-bg {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.8);
+    display: flex; align-items: center; justify-content: center; z-index: 100;
+  }
+  .modal {
+    background: linear-gradient(135deg, #0f172a, #1e293b);
+    border: 1px solid #06b6d4; border-radius: 14px;
+    padding: 24px; max-width: 420px; width: 90%;
+    box-shadow: 0 0 40px rgba(6,182,212,0.4);
+  }
+  .modal h2 { color: #06b6d4; margin-bottom: 12px; font-size: 20px; }
+  .modal p { color: #cbd5e1; margin-bottom: 14px; line-height: 1.6; font-size: 14px; }
+  .modal input {
+    width: 100%; padding: 10px 14px; background: #1e293b; border: 1px solid #475569;
+    border-radius: 8px; color: #fff; font-family: inherit; font-size: 14px;
+    margin-bottom: 12px;
+  }
+  .modal input:focus { outline: 2px solid #06b6d4; }
+  .modal-stat {
+    background: rgba(6,182,212,0.1); border: 1px solid rgba(6,182,212,0.3);
+    border-radius: 8px; padding: 12px; margin-bottom: 14px;
+  }
+  .modal-stat-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 13px; }
+  .modal-stat-row strong { color: #facc15; }
+
+  .alert-danger {
+    background: rgba(239,68,68,0.15); border: 1px solid #ef4444;
+    border-radius: 8px; padding: 12px; margin-bottom: 14px;
+    color: #fca5a5; font-size: 13px;
+  }
+  .alert-success {
+    background: rgba(34,197,94,0.15); border: 1px solid #22c55e;
+    border-radius: 8px; padding: 12px; margin-bottom: 14px;
+    color: #86efac; font-size: 13px;
+  }
+
+  .miss-text {
+    position: absolute; color: #ef4444; font-weight: 900; font-size: 32px;
+    text-shadow: 0 0 10px #ef4444; pointer-events: none;
+    animation: missAnim 0.8s ease-out forwards;
+  }
+  .hit-text {
+    position: absolute; color: #facc15; font-weight: 900; font-size: 26px;
+    text-shadow: 0 0 10px #facc15; pointer-events: none;
+    animation: hitAnim 1s ease-out forwards;
+  }
+  @keyframes missAnim {
+    from { opacity: 1; transform: translate(-50%, -50%) scale(0.5); }
+    to { opacity: 0; transform: translate(-50%, -120%) scale(1.5); }
+  }
+  @keyframes hitAnim {
+    from { opacity: 1; transform: translate(-50%, -50%) scale(0.5); }
+    to { opacity: 0; transform: translate(-50%, -120%) scale(1.4); }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🎣 빛의 굴절 - 물고기 잡기 🐟</h1>
+
+  <!-- 메인 탭 -->
+  <div class="tabs" id="tabs">
+    <div class="tab active" data-tab="main">🎮 시작하기</div>
+    <div class="tab" data-tab="hof">🏆 명예의 전당</div>
+  </div>
+
+  <!-- 메인 -->
+  <div class="panel" id="view-main">
+    <div class="main-screen">
+      <div class="author-badge">제작 : 삼각산중 최형준T</div>
+      <div class="main-title">🐟🎣</div>
+      <h2 style="color:#06b6d4; margin-bottom:8px;">빛의 굴절 물고기 잡기</h2>
+
+      <!-- 학급/이름 입력 영역 설정 -->
+      <div style="margin: 12px 0; padding: 12px; background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(6, 182, 212, 0.3); border-radius: 10px; text-align: left;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <div>
+            <label style="display: block; font-size: 11px; color: #94a3b8; font-weight: bold; margin-bottom: 3px;">🏫 학급 정보 (예: 2-2)</label>
+            <input type="text" id="user-ban" placeholder="예: 2-2" 
+                   style="width: 100%; padding: 8px; font-size: 12px; background: #020617; border: 1px solid #334155; border-radius: 6px; color: #fff; outline: none;" />
+          </div>
+          <div>
+            <label style="display: block; font-size: 11px; color: #94a3b8; font-weight: bold; margin-bottom: 3px;">👤 이름 (실명)</label>
+            <input type="text" id="user-name" placeholder="이름을 적어주세요" 
+                   style="width: 100%; padding: 8px; font-size: 12px; background: #020617; border: 1px solid #334155; border-radius: 6px; color: #fff; outline: none;" />
+          </div>
+        </div>
+      </div>
+
+      <p class="main-desc">
+        수면 위에서 무기를 발사해 물속의 물고기를 잡으세요!<br>
+        <span style="color:#22d3ee;">레이저는 물에서 실제 굴절</span>되고, <span style="color:#facc15;">작살은 곧게 직진</span>합니다.<br>
+        조준선은 똑바르지만 실제 발사 경로는 다릅니다! 최고 점수에 도전하세요!
+      </p>
+      <div class="center">
+        <button class="btn btn-primary" id="btn-start">🚀 게임 시작</button>
+      </div>
+      <div style="margin-top:20px; padding:14px; background:rgba(30,41,59,0.5); border-radius:10px; font-size:13px; color:#94a3b8; text-align:left;">
+        <strong style="color:#06b6d4;">📖 게임 방법</strong><br>
+        • <span class="key">←</span> <span class="key">→</span> 키로 조준 각도 조절<br>
+        • <span class="key">Space</span> 키로 발사<br>
+        • 라운드 시작 시 무기가 무작위로 결정됩니다.<br>
+        • <strong style="color:#fbbf24;">일반어 🐟</strong> 명중 시 라운드 종료, 다음 라운드 시작<br>
+        • <strong style="color:#a855f7;">희귀어 🐡</strong> 명중 시 <strong style="color:#f472b6;">15초간 점수 2배!</strong><br>
+        • <strong style="color:#22d3ee;">대형어 🐠</strong> 명중 시 보너스 점수
+      </div>
+    </div>
+  </div>
+
+  <!-- 게임 화면 -->
+  <div class="panel hidden" id="view-game">
+    <div class="hud">
+      <div class="hud-card">
+        <div class="hud-label">⏱ 남은 시간</div>
+        <div class="hud-value timer" id="hud-time">2:00</div>
+      </div>
+      <div class="hud-card">
+        <div class="hud-label">⭐ 점수</div>
+        <div class="hud-value score" id="hud-score">0</div>
+      </div>
+      <div class="hud-card">
+        <div class="hud-label">🔥 콤보</div>
+        <div class="hud-value combo" id="hud-combo">0</div>
+      </div>
+    </div>
+    <div class="timer-bar-wrap"><div class="timer-bar" id="timer-bar" style="width:100%"></div></div>
+
+    <div class="stage">
+      <canvas id="game" width="600" height="520"></canvas>
+      <div class="weapon-badge" id="weapon-badge">🔦 레이저</div>
+      <div class="multiplier-badge hidden" id="mult-badge">⚡ 2X 점수 (15s)</div>
+    </div>
+
+    <div class="hint" id="hint">화살표 키로 조준하고 스페이스바로 발사하세요!</div>
+    <div class="keys">
+      <span class="key">←</span> <span class="key">→</span> 조준
+      <span style="margin:0 8px;">|</span>
+      <span class="key">Space</span> 발사
+    </div>
+
+    <div class="center">
+      <button class="btn btn-secondary" id="btn-quit">메인으로</button>
+    </div>
+  </div>
+
+  <!-- 명예의 전당 -->
+  <div class="panel hidden" id="view-hof">
+    <h2 style="text-align:center; color:#facc15; margin-bottom:12px;">🏆 명예의 전당 TOP 15</h2>
+    <p id="hof-subtitle" style="text-align:center; color:#94a3b8; font-size:12px; margin-bottom:8px;">
+      구글 스프레드시트 H열의 실시간 점수와 A열의 학급 정보를 순서대로 표시합니다.
+    </p>
+    <ol class="hof-list" id="hof-list"></ol>
+  </div>
+</div>
+
+<!-- custom modals (alert & confirm 대체용) -->
+<div id="custom-alert" class="modal-bg hidden" style="background: rgba(0,0,0,0.85); transition: opacity 0.2s;">
+  <div class="modal" style="max-width: 360px; text-align: center;">
+    <h2 id="alert-title" style="color: #06b6d4; margin-bottom: 12px; font-size: 18px;">💡 안내</h2>
+    <p id="alert-message" style="margin-bottom: 18px; line-height: 1.5; font-size: 13px;"></p>
+    <button class="btn btn-primary" id="alert-ok-btn" style="width: 100%;">확인</button>
+  </div>
+</div>
+
+<div id="custom-confirm" class="modal-bg hidden" style="background: rgba(0,0,0,0.85); transition: opacity 0.2s;">
+  <div class="modal" style="max-width: 360px; text-align: center;">
+    <h2 id="confirm-title" style="color: #facc15; margin-bottom: 12px; font-size: 18px;">❓ 확인</h2>
+    <p id="confirm-message" style="margin-bottom: 18px; line-height: 1.5; font-size: 13px;"></p>
+    <div style="display: flex; gap: 8px;">
+      <button class="btn btn-primary" id="confirm-ok-btn" style="flex: 1;">확인</button>
+      <button class="btn btn-secondary" id="confirm-cancel-btn" style="flex: 1;">취소</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ════════════════════════════════════════════════════════════════════
+   ★ [교사 설정용] 구글 앱스 스크립트 웹앱 API URL 주소 설정 ★
+   아래 따옴표 안에 배포 완료된 구글 앱스 스크립트 웹앱 주소를 직접 넣어주세요.
+   ──────────────────────────────────────────────────────────────────── */
+const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzlQ96iMCi3qr937PNilgfjEsBlph1SfUB_SxbF9L0UC6NWXsupgaZEihSjH8naQYEu/exec";
+/* ════════════════════════════════════════════════════════════════════ */
+
+// ── STREAMING_CHUNK: Initializing state and constants ─────────────────────────
+const CW = 600, CH = 520;
+const WATER_TOP = 180;          // 수면 y좌표
+const WATER_BOTTOM = 490;
+const SHOOTER = { x: 300, y: 100 }; // 수면 위 (공기 중)
+const N_AIR = 1.00, N_WATER = 1.33;
+const GAME_TIME = 120; // 2분
+const MAX_ANGLE = 60;  // 좌우 최대 각도 (수직 아래 기준)
+const AIM_SPEED = 1.5; // 도/frame
+const PROJECTILE_SPEED = 9;
+
+// 무기 데이터 정의
+const WEAPONS = {
+  laser:   { name: "🔦 레이저", color: "#22d3ee", straight: false }, // 레이저는 물 속에서 스넬 법칙에 의해 굴절됨
+  harpoon: { name: "🔱 작살",   color: "#facc15", straight: true  }  // 작살은 직진함
+};
+// 레이저 3 : 작살 2 비율 풀
+const WEAPON_POOL = ["laser","laser","laser","harpoon","harpoon"];
+
+// ── 상태 ─────────────────────────────────────────────────────────
+let view = "main";
+let aimAngle = 0;          // 도 단위, 0=수직 아래
+let aimLeft = false, aimRight = false;
+let currentWeapon = "laser";
+let fishes = [];           // 한 라운드 동안 살아있는 물고기들
+let projectile = null;     // {x,y,segments:[{x1,y1,x2,y2}], idx, alive, weapon}
+let score = 0, combo = 0;
+let timeLeft = GAME_TIME;
+let timerInterval = null;
+let multiplierEnd = 0;     // ms timestamp
+let multiplierInterval = null;
+let gameActive = false;
+let rafId = null;
+let roundLocked = false;   // 라운드 종료 후 잠깐 잠금
+
+// 안전 검증용: 잡은 물고기 로그 (점수 검증)
+let caughtLog = [];        // {type, basePoints, multiplied(2x), earned}
+
+// ── DOM ──────────────────────────────────────────────────────────
+const $ = (id) => document.getElementById(id);
+const canvas = $("game");
+const ctx = canvas.getContext("2d");
+
+function alertModal(msg, title = "💡 안내") {
+  $("alert-title").textContent = title;
+  $("alert-message").innerHTML = msg.replace(/\n/g, "<br>");
+  $("custom-alert").classList.remove("hidden");
+  
+  return new Promise((resolve) => {
+    const okBtn = $("alert-ok-btn");
+    const onOk = () => {
+      $("custom-alert").classList.add("hidden");
+      okBtn.removeEventListener("click", onOk);
+      resolve();
+    };
+    okBtn.addEventListener("click", onOk);
+  });
+}
+
+function confirmModal(msg, title = "❓ 확인", onConfirm = null) {
+  $("confirm-title").textContent = title;
+  $("confirm-message").innerHTML = msg.replace(/\n/g, "<br>");
+  $("custom-confirm").classList.remove("hidden");
+
+  const okBtn = $("confirm-ok-btn");
+  const cancelBtn = $("confirm-cancel-btn");
+
+  const cleanup = () => {
+    $("custom-confirm").classList.add("hidden");
+    okBtn.removeEventListener("click", onOk);
+    cancelBtn.removeEventListener("click", onCancel);
+  };
+
+  const onOk = () => {
+    cleanup();
+    if (onConfirm) onConfirm();
+  };
+  const onCancel = () => {
+    cleanup();
+  };
+
+  okBtn.addEventListener("click", onOk);
+  cancelBtn.addEventListener("click", onCancel);
+}
+
+// ── 세이브 정보 로드 ──────────────────────────────────────────────
+window.addEventListener("load", () => {
+  const savedBan = localStorage.getItem("user_ban");
+  if (savedBan) $("user-ban").value = savedBan;
+  const savedName = localStorage.getItem("user_name");
+  if (savedName) $("user-name").value = savedName;
+});
+
+document.querySelectorAll(".tab").forEach(tab => {
+  tab.addEventListener("click", () => {
+    if (gameActive) return; // 게임 중에는 탭 전환 막기
+    const t = tab.dataset.tab;
+    document.querySelectorAll(".tab").forEach(x => x.classList.toggle("active", x===tab));
+    if (t === "main") showView("main");
+    else if (t === "hof") { renderHOF(); showView("hof"); }
+  });
+});
+
+function showView(v) {
+  view = v;
+  $("view-main").classList.toggle("hidden", v!=="main");
+  $("view-game").classList.toggle("hidden", v!=="game");
+  $("view-hof").classList.toggle("hidden", v!=="hof");
+}
+
+// 명예의 전당 렌더링 - 구글 스프레드시트 H열 연동 및 반 정보 표시
+function renderHOF() {
+  const url = GAS_WEB_APP_URL.trim();
+  const ol = $("hof-list");
+  
+  if (!url || url.includes("YOUR_DEPLOYED_URL_HERE")) {
+    $("hof-subtitle").textContent = "API 주소를 코드 상단에 설정하면 스프레드시트의 실시간 데이터(H열)가 불러와집니다.";
+    ol.innerHTML = `<div class="alert-danger" style="font-size: 12px; margin: 10px;">스프레드시트 웹앱 API 주소가 올바르게 구성되지 않았습니다.</div>`;
+    return;
+  }
+
+  $("hof-subtitle").textContent = "구글 스프레드시트 H열의 실시간 점수를 고득점 순으로 로딩하고 있습니다...";
+  ol.innerHTML = `<div style="text-align:center; padding:30px; color:#67e8f9;"><span style="font-size: 13px;">🔄 스프레드시트 실시간 데이터 로딩 중...</span></div>`;
+
+  // JSONP 방식 통신을 위한 고유 콜백명 생성
+  const callbackName = "jsonp_callback_refraction_" + Math.round(100000 * Math.random());
+  
+  window[callbackName] = function(data) {
+    delete window[callbackName];
+    const scriptNode = document.getElementById(callbackName);
+    if (scriptNode) scriptNode.parentNode.removeChild(scriptNode);
+
+    if (data.error) {
+      ol.innerHTML = `<div class="alert-danger" style="font-size: 12px; margin: 10px;">실시간 데이터 로드 실패: ${data.error}</div>`;
+      return;
+    }
+
+    // 서버 데이터를 고득점(score) 순으로 내림차순 정렬
+    const sortedData = data.sort((a, b) => b.score - a.score);
+    renderHofListUI(sortedData.slice(0, 15));
+  };
+
+  const separator = url.indexOf('?') !== -1 ? '&' : '?';
+  const requestUrl = `${url}${separator}callback=${callbackName}&t=${Date.now()}`;
+  
+  const script = document.createElement('script');
+  script.id = callbackName;
+  script.src = requestUrl;
+  script.onerror = function() {
+    ol.innerHTML = `<div class="alert-danger" style="font-size: 12px; margin: 10px;">데이터 연결 실패. 구글 앱스 스크립트 웹앱 주소가 유효한지 확인하세요.</div>`;
+  };
+  document.body.appendChild(script);
+}
+
+function renderHofListUI(list) {
+  const ol = $("hof-list");
+  ol.innerHTML = "";
+  if (list.length === 0) {
+    ol.innerHTML = '<p style="text-align:center; color:#64748b; padding:20px;">아직 등록된 기록이 없습니다.</p>';
+    return;
+  }
+  list.forEach((e, i) => {
+    const li = document.createElement("li");
+    let cls = "hof-row";
+    if (i===0) cls += " gold";
+    else if (i===1) cls += " silver";
+    else if (i===2) cls += " bronze";
+    li.className = cls;
+    const medal = ["🥇","🥈","🥉"][i] || `${i+1}`;
+    
+    // ★ [자동 복원 장치] 구글 시트가 2-2를 날짜로 오인해 긴 타임스탬프로 보낸 경우 다시 반 형식으로 변환
+    let displayBan = e.ban || "-";
+    if (displayBan.includes("GMT") || displayBan.includes("한국 표준시") || displayBan.includes("00:00:00")) {
+      const d = new Date(displayBan);
+      if (!isNaN(d.getTime())) {
+        displayBan = (d.getMonth() + 1) + "-" + d.getDate();
+      }
+    }
+    
+    li.innerHTML = `
+      <div class="hof-rank">${medal}</div>
+      <div class="hof-name">
+        ${escapeHtml(e.name)}
+        <span style="font-size:11px; color:#a5f3fc; font-weight:normal; background: rgba(6, 182, 212, 0.2); padding: 2px 7px; border-radius: 6px; border: 1px solid rgba(6, 182, 212, 0.3);">${escapeHtml(displayBan)}</span>
+      </div>
+      <div class="hof-score">${Number(e.score).toLocaleString()}점</div>`;
+    ol.appendChild(li);
+  });
+}
+
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+
+// ── 게임 시작/종료 ──────────────────────────────────────────────
+$("btn-start").addEventListener("click", () => {
+  const ban = $("user-ban").value.trim();
+  const name = $("user-name").value.trim();
+
+  if (!ban || !name) {
+    alertModal("학급 정보(예: 2-2)와 이름을 올바르게 채워주셔야 등재 및 제출이 가능합니다!", "⚠️ 선원 정보 입력");
+    return;
+  }
+
+  // 로컬스토리지 정보 저장
+  localStorage.setItem("user_ban", ban);
+  localStorage.setItem("user_name", name);
+
+  startGame();
+});
+
+$("btn-quit").addEventListener("click", () => {
+  confirmModal("게임을 종료하고 메인으로 돌아가시겠습니까?", "🎮 게임 종료", () => {
+    endGame(true);
+  });
+});
+
+function startGame() {
+  score = 0; combo = 0; timeLeft = GAME_TIME;
+  caughtLog = [];
+  multiplierEnd = 0;
+  projectile = null;
+  roundLocked = false;
+  gameActive = true;
+  updateHUD();
+  $("mult-badge").classList.add("hidden");
+  showView("game");
+  startRound();
+  timerInterval = setInterval(tickTimer, 1000);
+  rafId = requestAnimationFrame(gameLoop);
+}
+
+function endGame(skipModal=false) {
+  gameActive = false;
+  if (timerInterval) clearInterval(timerInterval);
+  if (multiplierInterval) clearInterval(multiplierInterval);
+  if (rafId) cancelAnimationFrame(rafId);
+  timerInterval = null; multiplierInterval = null; rafId = null;
+  if (!skipModal) showSubmitModal();
+  else showView("main");
+}
+
+function tickTimer() {
+  timeLeft--;
+  updateHUD();
+  if (timeLeft <= 0) endGame();
+}
+
+// ── 라운드 구성 및 엔티티 생성 ──────────────────────────────────
+function startRound() {
+  // 라운드 시작 시 무기 결정
+  currentWeapon = WEAPON_POOL[Math.floor(Math.random() * WEAPON_POOL.length)];
+  $("weapon-badge").innerHTML = WEAPONS[currentWeapon].name;
+  $("weapon-badge").style.borderColor = WEAPONS[currentWeapon].color;
+
+  // 물고기 배치
+  fishes = [];
+  fishes.push(makeFish("normal"));
+  if (Math.random() < 0.35) fishes.push(makeFish("large"));
+  if (Math.random() < 0.30) fishes.push(makeFish("rare"));
+
+  aimAngle = 0;
+  projectile = null;
+  roundLocked = false;
+  $("hint").textContent = `${WEAPONS[currentWeapon].name} - 이번 라운드 동안 같은 무기를 사용합니다`;
+}
+
+function makeFish(type) {
+  const baseSize = type==="large" ? 44 : type==="rare" ? 16 : 32;
+  for (let tries=0; tries<30; tries++) {
+    const x = 80 + Math.random() * (CW - 160);
+    const y = WATER_TOP + 60 + Math.random() * (WATER_BOTTOM - WATER_TOP - 100);
+    const overlap = fishes.some(f => Math.hypot(f.x-x, f.y-y) < (f.size + baseSize));
+    if (!overlap) {
+      return { x, y, size: baseSize, type, dir: Math.random()<0.5?1:-1, alive:true };
+    }
+  }
+  return { x: 100+Math.random()*(CW-200), y: WATER_TOP+80+Math.random()*200, size: baseSize, type, dir:1, alive:true };
+}
+
+// ── STREAMING_CHUNK: Handling shooting physics with Snell's law refraction ──
+window.addEventListener("keydown", (e) => {
+  if (!gameActive || view !== "game") return;
+  if (e.key === "ArrowLeft") { aimLeft = true; e.preventDefault(); }
+  if (e.key === "ArrowRight") { aimRight = true; e.preventDefault(); }
+  if (e.code === "Space") { fire(); e.preventDefault(); }
+});
+window.addEventListener("keyup", (e) => {
+  if (e.key === "ArrowLeft") aimLeft = false;
+  if (e.key === "ArrowRight") aimRight = false;
+});
+
+function fire() {
+  if (projectile && projectile.alive) return;
+  if (roundLocked) return;
+  
+  const w = WEAPONS[currentWeapon];
+  const rad = aimAngle * Math.PI / 180;
+  const dx = Math.sin(rad), dy = Math.cos(rad);
+  const segments = [];
+  let curX = SHOOTER.x, curY = SHOOTER.y;
+  let curDx = dx, curDy = dy;
+
+  if (w.straight) {
+    // 작살: 일직선으로 수면 뚫고 비행
+    const tBottom = (CH - curY) / curDy;
+    const tRight  = curDx > 0 ? (CW - curX) / curDx : Infinity;
+    const tLeft   = curDx < 0 ? (0 - curX) / curDx : Infinity;
+    const t = Math.min(tBottom, tRight, tLeft);
+    segments.push({ x1:curX, y1:curY, x2:curX+curDx*t, y2:curY+curDy*t, dx:curDx, dy:curDy });
+  } else {
+    // 레이저: 공기 -> 수면 입사 후 스넬의 법칙에 따라 실제 굴절
+    // 1구간: 사수 발사대 -> 수면 교점
+    const tToSurf = (WATER_TOP - curY) / curDy;
+    const surfX = curX + curDx * tToSurf;
+    const surfY = WATER_TOP;
+    segments.push({ x1:curX, y1:curY, x2:surfX, y2:surfY, dx:curDx, dy:curDy });
+    
+    if (surfX >= 0 && surfX <= CW) {
+      // 스넬의 법칙 적용: n1 * sin(theta1) = n2 * sin(theta2)
+      const theta1 = Math.abs(aimAngle) * Math.PI / 180;
+      const sinT2 = (N_AIR / N_WATER) * Math.sin(theta1);
+      const theta2 = Math.asin(Math.min(1, sinT2));
+      const sign = aimAngle >= 0 ? 1 : -1;
+      
+      const ndx = sign * Math.sin(theta2);
+      const ndy = Math.cos(theta2);
+      
+      const tBottom = (CH - surfY) / ndy;
+      const tRight  = ndx > 0 ? (CW - surfX) / ndx : Infinity;
+      const tLeft   = ndx < 0 ? (0 - surfX) / ndx : Infinity;
+      const t = Math.min(tBottom, tRight, tLeft);
+      segments.push({ x1:surfX, y1:surfY, x2:surfX+ndx*t, y2:surfY+ndy*t, dx:ndx, dy:ndy });
+    }
+  }
+
+  projectile = {
+    weapon: currentWeapon,
+    segments,
+    segIdx: 0,
+    t: 0,
+    x: SHOOTER.x, y: SHOOTER.y,
+    alive: true,
+    trail: []
+  };
+}
+
+// ── 게임 루프 ────────────────────────────────────────────────────
+function gameLoop() {
+  if (aimLeft)  aimAngle = Math.max(-MAX_ANGLE, aimAngle - AIM_SPEED);
+  if (aimRight) aimAngle = Math.min( MAX_ANGLE, aimAngle + AIM_SPEED);
+
+  fishes.forEach(f => {
+    if (!f.alive) return;
+    f._bob = (f._bob || 0) + 0.08;
+  });
+
+  if (projectile && projectile.alive) {
+    updateProjectile();
+  }
+
+  draw();
+  if (gameActive) rafId = requestAnimationFrame(gameLoop);
+}
+
+function updateProjectile() {
+  const p = projectile;
+  const seg = p.segments[p.segIdx];
+  const len = Math.hypot(seg.x2-seg.x1, seg.y2-seg.y1);
+  for (let i=0; i<1; i++) {
+    p.t += PROJECTILE_SPEED / len;
+    if (p.t >= 1) {
+      if (p.segIdx + 1 < p.segments.length) {
+        p.segIdx++; p.t = 0;
+      } else {
+        p.x = seg.x2; p.y = seg.y2;
+        finalizeShot();
+        return;
+      }
+    }
+    const s = p.segments[p.segIdx];
+    p.x = s.x1 + (s.x2-s.x1)*p.t;
+    p.y = s.y1 + (s.y2-s.y1)*p.t;
+    p.trail.push({x:p.x, y:p.y});
+    if (p.trail.length > 12) p.trail.shift();
+
+    for (const f of fishes) {
+      if (!f.alive) continue;
+      if (Math.hypot(p.x-f.x, p.y-f.y) < f.size*0.55) {
+        hitFish(f);
+        return;
+      }
+    }
+  }
+}
+
+function finalizeShot() {
+  projectile.alive = false;
+  combo = 0;
+  showFloatText("MISS", projectile.x, projectile.y, "miss");
+  $("hint").textContent = "빗나갔습니다! 콤보 초기화";
+  updateHUD();
+  setTimeout(() => { projectile = null; }, 400);
+}
+
+function hitFish(f) {
+  f.alive = false;
+  projectile.alive = false;
+  combo++;
+  const now = Date.now();
+  const isMult = now < multiplierEnd;
+  let base = 0;
+  if (f.type === "normal") base = 100;
+  else if (f.type === "large") base = 200;
+  else if (f.type === "rare") base = 300;
+  const comboBonus = (combo-1) * 20;
+  let earned = base + comboBonus;
+  if (isMult) earned *= 2;
+  score += earned;
+  caughtLog.push({
+    type: f.type,
+    base, comboBonus,
+    multiplied: isMult,
+    earned
+  });
+
+  if (f.type === "rare") activateMultiplier();
+
+  showFloatText(`+${earned}${isMult?" x2":""}`, f.x, f.y, "hit");
+  $("hint").textContent = `${f.type==="normal"?"🐟":f.type==="large"?"🐠":"🐡"} 명중! +${earned}점 (콤보 ${combo})`;
+  updateHUD();
+  setTimeout(() => { projectile = null; }, 200);
+
+  if (f.type === "normal") {
+    roundLocked = true;
+    setTimeout(() => {
+      if (gameActive) startRound();
+    }, 800);
+  }
+}
+
+function activateMultiplier() {
+  multiplierEnd = Date.now() + 15000;
+  $("mult-badge").classList.remove("hidden");
+  if (multiplierInterval) clearInterval(multiplierInterval);
+  multiplierInterval = setInterval(() => {
+    const remain = Math.ceil((multiplierEnd - Date.now())/1000);
+    if (remain <= 0) {
+      $("mult-badge").classList.add("hidden");
+      clearInterval(multiplierInterval);
+      multiplierInterval = null;
+    } else {
+      $("mult-badge").textContent = `⚡ 2X 점수 (${remain}s)`;
+    }
+  }, 200);
+  $("mult-badge").textContent = `⚡ 2X 점수 (15s)`;
+}
+
+// ── STREAMING_CHUNK: Computing geometric apparent position for 3D illusion ──
+function computeApparentPos(fx, fy) {
+  if (fy <= WATER_TOP) return { x: fx, y: fy };
+  const sxA = SHOOTER.x, syA = SHOOTER.y;
+  const depth = fy - WATER_TOP;
+  const above = WATER_TOP - syA;
+
+  // 페르마 정리 및 스넬 법칙 역추적용 이진 탐색 (최적 입사점 탐색)
+  let lo = Math.min(sxA, fx) - 400, hi = Math.max(sxA, fx) + 400;
+  function F(sx) {
+    const dxA = sx - sxA, dyA = above;
+    const dxW = fx - sx, dyW = depth;
+    const sinA = dxA / Math.hypot(dxA, dyA);
+    const sinW = dxW / Math.hypot(dxW, dyW);
+    return N_AIR*sinA - N_WATER*sinW;
+  }
+  for (let i=0; i<40; i++) {
+    const mid = (lo+hi)/2;
+    if (F(mid) > 0) hi = mid; else lo = mid;
+  }
+  const sx = (lo+hi)/2;
+  
+  // 겉보기 깊이 계산: 실제 깊이 * (N_AIR / N_WATER)
+  const appDepth = depth * (N_AIR / N_WATER);
+  const totalY = WATER_TOP + appDepth;
+  const dxA = sx - sxA;
+  const k = (totalY - syA) / above;
+  const apX = sxA + dxA * k;
+  const apY = totalY;
+  
+  return { x: apX, y: apY };
+}
+
+// ── STREAMING_CHUNK: Canvas rendering and layouts ────────────────────────────
+function draw() {
+  ctx.clearRect(0,0,CW,CH);
+  
+  // 하늘 그라데이션
+  const sky = ctx.createLinearGradient(0,0,0,WATER_TOP);
+  sky.addColorStop(0, "#0c1733");
+  sky.addColorStop(1, "#1e293b");
+  ctx.fillStyle = sky; ctx.fillRect(0,0,CW,WATER_TOP);
+  
+  // 수중 그라데이션
+  const water = ctx.createLinearGradient(0,WATER_TOP,0,CH);
+  water.addColorStop(0, "#0c4a6e");
+  water.addColorStop(1, "#020617");
+  ctx.fillStyle = water; ctx.fillRect(0,WATER_TOP,CW,CH-WATER_TOP);
+  
+  // 수면 라인
+  ctx.strokeStyle = "rgba(34,211,238,0.6)"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0,WATER_TOP); ctx.lineTo(CW,WATER_TOP); ctx.stroke();
+  
+  // 수면 반짝임 이펙트
+  ctx.fillStyle = "rgba(255,255,255,0.04)";
+  for (let i=0;i<CW;i+=20) ctx.fillRect(i, WATER_TOP-1, 8, 2);
+
+  drawShooter();
+  drawAimLine(); // 보조 가이드라인은 일직선으로 그려 수면 굴절 현상과 교육적 대비를 유도
+  fishes.forEach(drawFish);
+  if (projectile) drawProjectile();
+}
+
+function drawShooter() {
+  // 보트
+  ctx.fillStyle = "#7c2d12";
+  ctx.beginPath();
+  ctx.moveTo(SHOOTER.x-50, SHOOTER.y+18);
+  ctx.lineTo(SHOOTER.x+50, SHOOTER.y+18);
+  ctx.lineTo(SHOOTER.x+40, SHOOTER.y+34);
+  ctx.lineTo(SHOOTER.x-40, SHOOTER.y+34);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "#92400e";
+  ctx.fillRect(SHOOTER.x-50, SHOOTER.y+15, 100, 4);
+
+  // 캐릭터
+  ctx.fillStyle = "#fbbf24";
+  ctx.beginPath(); ctx.arc(SHOOTER.x, SHOOTER.y-2, 9, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = "#1e40af";
+  ctx.fillRect(SHOOTER.x-7, SHOOTER.y+6, 14, 14);
+
+  // 현재 총구/조준대
+  const rad = aimAngle * Math.PI / 180;
+  const wx = SHOOTER.x + Math.sin(rad)*22;
+  const wy = SHOOTER.y + Math.cos(rad)*22;
+  ctx.strokeStyle = WEAPONS[currentWeapon].color;
+  ctx.lineWidth = 4;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(SHOOTER.x, SHOOTER.y+8);
+  ctx.lineTo(wx, wy);
+  ctx.stroke();
+}
+
+function drawAimLine() {
+  const rad = aimAngle * Math.PI / 180;
+  const dx = Math.sin(rad), dy = Math.cos(rad);
+  ctx.save();
+  ctx.setLineDash([5, 5]);
+  ctx.strokeStyle = "rgba(255,255,255,0.75)";
+  ctx.lineWidth = 1.6;
+  ctx.beginPath();
+  ctx.moveTo(SHOOTER.x, SHOOTER.y+8);
+  
+  // 보조선(가이드라인)은 굴절을 적용하지 않고 화면 밑바닥까지 정직한 일직선으로 연장하여 그립니다.
+  const tEnd = (CH - SHOOTER.y) / dy;
+  ctx.lineTo(SHOOTER.x + dx * tEnd, SHOOTER.y + dy * tEnd);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawApparentFish(f) {
+  if (!f.alive) return;
+  if (f.y <= WATER_TOP) return;
+  const ap = computeApparentPos(f.x, f.y);
+  const bob = Math.sin(f._bob || 0) * 2;
+  const x = ap.x, y = ap.y + bob;
+  const s = f.size;
+  let bodyColor, finColor;
+  if (f.type === "large") { bodyColor = "#0891b2"; finColor = "#0e7490"; }
+  else if (f.type === "rare") { bodyColor = "#a855f7"; finColor = "#7e22ce"; }
+  else { bodyColor = "#f97316"; finColor = "#c2410c"; }
+  
+  ctx.save();
+  ctx.globalAlpha = 0.28;
+  ctx.fillStyle = bodyColor;
+  ctx.beginPath();
+  ctx.ellipse(x, y, s*0.6, s*0.4, 0, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = finColor;
+  ctx.beginPath();
+  const tx = x - f.dir*s*0.55;
+  ctx.moveTo(tx, y);
+  ctx.lineTo(tx - f.dir*s*0.35, y - s*0.3);
+  ctx.lineTo(tx - f.dir*s*0.35, y + s*0.3);
+  ctx.closePath();
+  ctx.fill();
+  
+  // 환영 점선 표시 외곽선
+  ctx.globalAlpha = 0.5;
+  ctx.setLineDash([3,3]);
+  ctx.strokeStyle = "rgba(255,255,255,0.6)";
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.ellipse(x, y, s*0.62, s*0.42, 0, 0, Math.PI*2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawFish(f) {
+  if (!f.alive) return;
+  // 1단계: 수면 굴절에 의한 겉보기 물고기(환영) 그리기
+  drawApparentFish(f);
+  
+  // 2단계: 실제 물리적으로 존재하는 진짜 물고기 위치 그리기
+  const bob = Math.sin(f._bob || 0) * 2;
+  const x = f.x, y = f.y + bob;
+  const s = f.size;
+  let bodyColor, finColor;
+  if (f.type === "large") { bodyColor = "#0891b2"; finColor = "#0e7490"; }
+  else if (f.type === "rare") { bodyColor = "#a855f7"; finColor = "#7e22ce"; }
+  else { bodyColor = "#f97316"; finColor = "#c2410c"; }
+
+  ctx.save();
+  if (f.type === "rare") {
+    ctx.shadowColor = "#c084fc"; ctx.shadowBlur = 14;
+  } else if (f.type === "large") {
+    ctx.shadowColor = "#22d3ee"; ctx.shadowBlur = 8;
+  }
+  ctx.fillStyle = bodyColor;
+  ctx.beginPath();
+  ctx.ellipse(x, y, s*0.6, s*0.4, 0, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = finColor;
+  ctx.beginPath();
+  const tx = x - f.dir*s*0.55;
+  ctx.moveTo(tx, y);
+  ctx.lineTo(tx - f.dir*s*0.35, y - s*0.3);
+  ctx.lineTo(tx - f.dir*s*0.35, y + s*0.3);
+  ctx.closePath();
+  ctx.fill();
+  
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "#fff";
+  ctx.beginPath(); ctx.arc(x + f.dir*s*0.3, y - s*0.1, s*0.1, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = "#000";
+  ctx.beginPath(); ctx.arc(x + f.dir*s*0.32, y - s*0.1, s*0.05, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+
+  if (f.type !== "normal") {
+    ctx.fillStyle = f.type==="rare" ? "#e9d5ff" : "#a5f3fc";
+    ctx.font = "bold 10px 'Noto Sans KR'";
+    ctx.textAlign = "center";
+    ctx.fillText(f.type==="rare" ? "희귀" : "대형", x, y - s*0.5 - 4);
+  }
+}
+
+function drawProjectile() {
+  const p = projectile;
+  const w = WEAPONS[p.weapon];
+  ctx.save();
+  ctx.strokeStyle = w.color;
+  ctx.lineWidth = p.weapon === "laser" ? 3 : 2;
+  ctx.lineCap = "round";
+  ctx.shadowColor = w.color;
+  ctx.shadowBlur = p.weapon === "laser" ? 15 : 6;
+  ctx.beginPath();
+  for (let i=0; i<p.segIdx; i++) {
+    const s = p.segments[i];
+    ctx.moveTo(s.x1, s.y1); ctx.lineTo(s.x2, s.y2);
+  }
+  const cs = p.segments[p.segIdx];
+  ctx.moveTo(cs.x1, cs.y1); ctx.lineTo(p.x, p.y);
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.save();
+  if (p.weapon === "laser") {
+    ctx.fillStyle = "#fff";
+    ctx.shadowColor = w.color; ctx.shadowBlur = 20;
+    ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI*2); ctx.fill();
+  } else if (p.weapon === "harpoon") {
+    const s = p.segments[p.segIdx];
+    const ang = Math.atan2(s.dy, s.dx);
+    ctx.translate(p.x, p.y); ctx.rotate(ang);
+    ctx.fillStyle = "#facc15";
+    ctx.beginPath();
+    ctx.moveTo(10, 0);
+    ctx.lineTo(-2, -6);
+    ctx.lineTo(-2, -2);
+    ctx.lineTo(-14, -2);
+    ctx.lineTo(-14, 2);
+    ctx.lineTo(-2, 2);
+    ctx.lineTo(-2, 6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#d97706";
+    ctx.beginPath();
+    ctx.moveTo(-14, -1.5);
+    ctx.lineTo(-18, -4);
+    ctx.lineTo(-18, 4);
+    ctx.lineTo(-14, 1.5);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+// ── HUD 및 플로팅 텍스트 이펙트 ──────────────────────────────────
+function updateHUD() {
+  const m = Math.floor(timeLeft/60), s = timeLeft%60;
+  $("hud-time").textContent = `${m}:${s.toString().padStart(2,"0")}`;
+  $("hud-score").textContent = score.toLocaleString();
+  $("hud-combo").textContent = combo;
+  const pct = (timeLeft/GAME_TIME)*100;
+  const bar = $("timer-bar");
+  bar.style.width = pct + "%";
+  bar.classList.toggle("warn", timeLeft<=30 && timeLeft>10);
+  bar.classList.toggle("danger", timeLeft<=10);
+}
+
+function showFloatText(text, x, y, kind) {
+  const div = document.createElement("div");
+  div.className = kind==="miss" ? "miss-text" : "hit-text";
+  div.textContent = text;
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = rect.width / CW, scaleY = rect.height / CH;
+  div.style.left = (rect.left + x*scaleX + window.scrollX) + "px";
+  div.style.top  = (rect.top  + y*scaleY + window.scrollY) + "px";
+  div.style.position = "absolute";
+  document.body.appendChild(div);
+  setTimeout(() => div.remove(), kind==="miss"?800:1000);
+}
+
+function computeExpectedScore() {
+  return caughtLog.reduce((sum, c) => sum + c.earned, 0);
+}
+
+function showSubmitModal() {
+  const modal = document.createElement("div");
+  modal.className = "modal-bg";
+  const expected = computeExpectedScore();
+  const counts = { normal:0, large:0, rare:0 };
+  caughtLog.forEach(c => counts[c.type]++);
+
+  const ban = $("user-ban").value.trim();
+  const name = $("user-name").value.trim();
+  const apiUrl = GAS_WEB_APP_URL.trim();
+  const hasValidApi = apiUrl && !apiUrl.includes("YOUR_DEPLOYED_URL_HERE");
+
+  modal.innerHTML = `
+    <div class="modal">
+      <h2>🎉 탐사 완수!</h2>
+      <div class="modal-stat">
+        <div class="modal-stat-row"><span>🏫 대원 정보</span><strong>${escapeHtml(ban)} ${escapeHtml(name)}</strong></div>
+        <div class="modal-stat-row"><span>⭐ 최종 점수</span><strong>${score.toLocaleString()}점</strong></div>
+        <div class="modal-stat-row"><span>🐟 일반어</span><span>${counts.normal}마리</span></div>
+        <div class="modal-stat-row"><span>🐠 대형어</span><span>${counts.large}마리</span></div>
+        <div class="modal-stat-row"><span>🐡 희귀어</span><span>${counts.rare}마리</span></div>
+      </div>
+      <p>📝 오늘의 사냥 및 직선 궤적 탐사 활동 소감(소감2)을 적어주세요.</p>
+      <textarea id="user-comment-textarea" placeholder="작살과 레이저를 발사해 심해 탐사를 마친 멋진 소감을 작성해 주세요!" 
+                style="width:100%; min-height:80px; padding:10px; background:#1e293b; border:1px solid #475569; border-radius:8px; color:#fff; font-family:inherit; font-size:13px; margin-bottom:12px; resize:vertical; outline:none;"></textarea>
+      <div id="hof-error"></div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn btn-primary" id="hof-submit" style="flex:1;">🏆 점수 제출하기</button>
+        <button class="btn btn-secondary" id="hof-skip" style="flex:1;">건너뛰기</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+
+  const textarea = modal.querySelector("#user-comment-textarea");
+  textarea.focus();
+
+  modal.querySelector("#hof-skip").addEventListener("click", () => {
+    modal.remove();
+    showView("main");
+  });
+
+  modal.querySelector("#hof-submit").addEventListener("click", () => {
+    const commentValue = textarea.value.trim() || "더 맑고 푸른 바다를 향해!";
+    const errBox = modal.querySelector("#hof-error");
+    const submitBtn = modal.querySelector("#hof-submit");
+
+    errBox.innerHTML = "";
+
+    // 안티치트 검증
+    if (score !== expected) {
+      errBox.innerHTML = `
+        <div class="alert-danger">
+          🚫 <strong>편법 방지 작동</strong><br>
+          기록된 물고기 개수와 연산 점수가 일치하지 않습니다.
+        </div>`;
+      return;
+    }
+
+    if (score <= 0) {
+      errBox.innerHTML = `<div class="alert-danger">⚠️ 0점은 기록으로 제출할 수 없습니다.</div>`;
+      return;
+    }
+
+    if (!hasValidApi) {
+      errBox.innerHTML = `<div class="alert-danger">❌ 스프레드시트 API 주소가 상단에 올바르게 입력되지 않아 전송할 수 없습니다.</div>`;
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = "⏳ 서버 전송 중...";
+
+    const payload = {
+      ban: ban,
+      name: name,
+      score: score,
+      comment: commentValue
+    };
+
+    fetch(apiUrl, {
+      method: "POST",
+      mode: "no-cors",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    })
+    .then(() => {
+      errBox.innerHTML = `<div class="alert-success">🎉 구글 스프레드시트 H열(점수) 및 I열(소감2)에 완벽하게 동기화되었습니다!</div>`;
+      setTimeout(() => {
+        modal.remove();
+        document.querySelectorAll(".tab").forEach(x => x.classList.toggle("active", x.dataset.tab==="hof"));
+        renderHOF();
+        showView("hof");
+      }, 1600);
+    })
+    .catch(err => {
+      console.error(err);
+      errBox.innerHTML = `<div class="alert-danger">❌ 서버 저장 실패. Apps Script 배포 버젼 및 URL을 체크하세요.</div>`;
+      submitBtn.disabled = false;
+      submitBtn.textContent = "🏆 점수 제출하기";
+    });
+  });
+}
+
+// ── 초기화 및 시작 ───────────────────────────────────────────────
+renderHOF();
+showView("main");
+draw();
+</script>
+</body>
+</html>
