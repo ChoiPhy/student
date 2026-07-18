@@ -518,6 +518,7 @@
             max-width: 500px;
             margin: 0 auto 30px;
             border-collapse: collapse;
+            table-layout: fixed; /* 고정 레이아웃으로 컬럼 틀어짐 완전 방지 */
         }
 
         .ranking-table th {
@@ -525,7 +526,13 @@
             color: white;
             padding: 15px;
             font-size: 1.2rem;
+            text-align: center;
         }
+
+        .ranking-table th:nth-child(1) { width: 25%; } /* 순위 */
+        .ranking-table th:nth-child(2) { width: 25%; } /* 반 */
+        .ranking-table th:nth-child(3) { width: 30%; } /* 이름 */
+        .ranking-table th:nth-child(4) { width: 20%; } /* 점수 */
 
         .ranking-table th:first-child { border-radius: 15px 0 0 0; }
         .ranking-table th:last-child { border-radius: 0 15px 0 0; }
@@ -534,6 +541,23 @@
             padding: 15px;
             font-size: 1.1rem;
             border-bottom: 2px solid #f1f2f6;
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        /* 이름 줄바꿈 방지 및 자동 생략(...) 처리 */
+        .rank-name-cell {
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            max-width: 150px;
+            text-align: center;
+        }
+
+        /* 학급(반) 줄바꿈 방지 */
+        .rank-ban-cell {
+            white-space: nowrap !important;
+            text-align: center;
         }
 
         .ranking-table tr:last-child td:first-child { border-radius: 0 0 0 15px; }
@@ -717,7 +741,7 @@
                         반과 이름을 적어 전송하면 구글 시트에 즉시 기록되어 명예의 전당 순위에 오릅니다!
                     </p>
                     <div class="sheet-submit-container" style="display: flex; gap: 10px; justify-content: center; margin-bottom: 15px; flex-wrap: wrap;">
-                        <input type="text" id="sheetBan" class="sheet-submit-input" placeholder="학급 (예: 3-1)">
+                        <input type="text" id="sheetBan" class="sheet-submit-input" placeholder="학급 (예: 2-2)">
                         <input type="text" id="sheetName" class="sheet-submit-input" placeholder="이름 (예: 홍길동)">
                     </div>
                     <!-- 소감 한 줄 입력란 추가 -->
@@ -809,6 +833,11 @@
     </div>
 
     <script>
+        // HTML 이스케이프 함수 정의 (XSS 및 렌더링 깨짐 원천 방지)
+        function escapeHtml(s) { 
+            return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); 
+        }
+
         // ========== 구글 시트 연동 설정 ==========
         const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbw6vXIUtJn6fBytL9NVP_LyCKUrc2ImBa-xCtp4_sajbMkb_QKsoK0vuZ0DuPkwVFnc/exec";
 
@@ -1124,7 +1153,7 @@
         let gameActive = false;
         let hintInterval = null;
 
-        // 명예의 전당 표시 (진단 및 안내 메시지 강화)
+        // 명예의 전당 표시 (타임스탬프 원천 제거 및 학년반 자동 복원 렌더링)
         async function showHallOfFame() {
             document.getElementById('startScreen').style.display = 'none';
             document.getElementById('hallScreen').style.display = 'block';
@@ -1174,17 +1203,29 @@
                 else if (rank === 2) { medal = '🥈'; rankClass = 'rank-2'; }
                 else if (rank === 3) { medal = '🥉'; rankClass = 'rank-3'; }
 
+                // ★ [구글 시트 자동 복원 장치] 학년반(2-2 등)이 날짜 서식으로 오염되어 긴 타임스탬프로 수신된 경우 다시 원래 형식으로 재변환
+                let displayBan = record.ban || "-";
+                if (displayBan.includes("GMT") || displayBan.includes("한국 표준시") || displayBan.includes("00:00:00") || 
+                    displayBan.includes("Mon") || displayBan.includes("Tue") || displayBan.includes("Wed") || 
+                    displayBan.includes("Thu") || displayBan.includes("Fri") || displayBan.includes("Sat") || displayBan.includes("Sun")) {
+                    const d = new Date(displayBan);
+                    if (!isNaN(d.getTime())) {
+                        displayBan = (d.getMonth() + 1) + "-" + d.getDate();
+                    }
+                }
+
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td class="${rankClass}"><span class="medal">${medal}</span> ${rank}등</td>
-                    <td>${record.ban}</td>
-                    <td>${record.name}</td>
+                    <td class="rank-ban-cell">${escapeHtml(displayBan)}</td>
+                    <td class="rank-name-cell" title="${escapeHtml(record.name)}">${escapeHtml(record.name)}</td>
                     <td><strong>${record.score}점</strong></td>
                 `;
                 tbody.appendChild(row);
             });
         }
 
+        // ── [이하 기존 카드게임 기능 로직 동일 유지] ───────────────────────────
         function initDeck() {
             deck = [...rockCards, ...situationCards, ...jokerCards];
             shuffleDeck();
@@ -1330,7 +1371,7 @@
             document.getElementById('jokerDetailModal').classList.remove('show');
 
             if (type === 'rock') {
-                if (selectedCards[0] === null) { Nexus : selectedCards[0] = pendingJokerCard; jokerUsedAs[0] = option; }
+                if (selectedCards[0] === null) { selectedCards[0] = pendingJokerCard; jokerUsedAs[0] = option; }
                 else if (selectedCards[2] === null) { selectedCards[2] = pendingJokerCard; jokerUsedAs[2] = option; }
                 else { selectedCards[0] = pendingJokerCard; jokerUsedAs[0] = option; }
             } else {
