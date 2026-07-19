@@ -157,7 +157,7 @@
   }
   .modal input:focus { outline: 2px solid #06b6d4; }
   .modal-stat {
-    background: rgba(6,182,212,0.1); border: 1px solid rgba(6,182,212,0.3);
+    background: rgba(6, 182, 212, 0.1); border: 1px solid rgba(6, 182, 212, 0.3);
     border-radius: 8px; padding: 12px; margin-bottom: 14px;
   }
   .modal-stat-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 13px; }
@@ -316,12 +316,12 @@
 <script>
 /* ════════════════════════════════════════════════════════════════════
    ★ [교사 설정용] 구글 앱스 스크립트 웹앱 API URL 주소 설정 ★
-   아래 따옴표 안에 배포 완료된 구글 앱스 스크립트 웹앱 주소를 직접 넣어주세요.
+   아래 따옴표 안에 새로 발급된 (새 배포) 주소를 직접 붙여넣어 주세요!
    ──────────────────────────────────────────────────────────────────── */
 const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwaQltbIfvcO5YMWDhPvFicJSX83ZHROyY-wkGpxj7Ew7BO6PXUpuEjb1FkAcV5Hdo/exec";
 /* ════════════════════════════════════════════════════════════════════ */
 
-// ── STREAMING_CHUNK: Initializing state and constants ─────────────────────────
+// ── 상태 및 설정 상수 ─────────────────────────────────────────
 const CW = 600, CH = 520;
 const WATER_TOP = 180;          // 수면 y좌표
 const WATER_BOTTOM = 490;
@@ -464,6 +464,7 @@ function renderHOF() {
   };
 
   const separator = url.indexOf('?') !== -1 ? '&' : '?';
+  // 캐싱 방지용 랜덤 쿼리 추가
   const requestUrl = `${url}${separator}callback=${callbackName}&t=${Date.now()}`;
   
   const script = document.createElement('script');
@@ -498,6 +499,11 @@ function renderHofListUI(list) {
       if (!isNaN(d.getTime())) {
         displayBan = (d.getMonth() + 1) + "-" + d.getDate();
       }
+    }
+    
+    // 만약 데이터베이스 검증 상 다른 열에서 가져왔다면 콘솔에 찍어 알려줍니다.
+    if (e.targetColumnIndex && e.targetColumnIndex !== 7) {
+      console.warn("경고: 현재 서버에서 잘못된 열(H열이 아닌 다른 열) 데이터를 가져오고 있습니다. 웹앱 버전을 다시 확인해주세요.");
     }
     
     li.innerHTML = `
@@ -599,7 +605,7 @@ function makeFish(type) {
   return { x: 100+Math.random()*(CW-200), y: WATER_TOP+80+Math.random()*200, size: baseSize, type, dir:1, alive:true };
 }
 
-// ── STREAMING_CHUNK: Handling shooting physics with Snell's law refraction ──
+// ── 키 이벤트 및 물리 굴절 연산 (스넬 법칙) ─────────────────────
 window.addEventListener("keydown", (e) => {
   if (!gameActive || view !== "game") return;
   if (e.key === "ArrowLeft") { aimLeft = true; e.preventDefault(); }
@@ -777,7 +783,7 @@ function activateMultiplier() {
   $("mult-badge").textContent = `⚡ 2X 점수 (15s)`;
 }
 
-// ── STREAMING_CHUNK: Computing geometric apparent position for 3D illusion ──
+// ── 3D 착시(빛의 굴절) 겉보기 깊이 연산 ──────────────────────────
 function computeApparentPos(fx, fy) {
   if (fy <= WATER_TOP) return { x: fx, y: fy };
   const sxA = SHOOTER.x, syA = SHOOTER.y;
@@ -810,7 +816,7 @@ function computeApparentPos(fx, fy) {
   return { x: apX, y: apY };
 }
 
-// ── STREAMING_CHUNK: Canvas rendering and layouts ────────────────────────────
+// ── 캔버스 렌더링 ───────────────────────────────────────────
 function draw() {
   ctx.clearRect(0,0,CW,CH);
   
